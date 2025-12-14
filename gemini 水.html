@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>水去咗邊度？小小科學家實驗</title>
+    <style>
+        /* 🌈 視覺友善設計：高對比、大字體、圓角 */
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Microsoft JhengHei', 'Heiti TC', sans-serif;
+            background-color: #f0f8ff;
+            touch-action: none; /* 防止手機滑動 */
+        }
+
+        #ui-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* 讓點擊穿透到 Canvas */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 10;
+        }
+
+        /* 頂部標題與問題 */
+        header {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            pointer-events: auto;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            margin: 0;
+            color: #333;
+            font-size: 1.5rem;
+        }
+
+        p.question {
+            margin: 10px 0 0 0;
+            color: #555;
+            font-size: 1.1rem;
+        }
+
+        /* 底部控制區 */
+        #controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            pointer-events: auto;
+            background: rgba(255, 255, 255, 0.85);
+            padding: 20px;
+            border-radius: 30px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.1);
+        }
+
+        .btn {
+            border: none;
+            padding: 15px 20px;
+            font-size: 1.1rem;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-weight: bold;
+            box-shadow: 0 5px 0 rgba(0,0,0,0.2);
+            min-width: 100px;
+        }
+
+        .btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 1px 0 rgba(0,0,0,0.2);
+        }
+
+        /* 顏色編碼 */
+        .btn-cold { background-color: #87CEEB; color: #004d6e; } /* ❄️ 冷 */
+        .btn-room { background-color: #90EE90; color: #1b5e20; } /* 🏠 常溫 */
+        .btn-hot { background-color: #FFB6C1; color: #880e4f; }  /* ☀️ 熱 */
+        
+        .btn-reset-main { 
+            background-color: #FFD700; 
+            color: #5d4037; 
+            display: none; /* 實驗開始後顯示 */
+        } 
+
+        .btn-quiz {
+            background-color: #BA68C8;
+            color: #fff;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .emoji {
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+        }
+
+        /* 狀態/總結顯示框 (Modal) */
+        .modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.98);
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            width: 85%;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            pointer-events: auto;
+            border: 5px solid #FFD700;
+            display: none;
+            z-index: 100;
+        }
+
+        .modal h2 { margin-top: 0; color: #333; }
+        .modal p { font-size: 1.2rem; line-height: 1.6; color: #444; }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        /* 測驗介面樣式 */
+        #quiz-container {
+            border-color: #BA68C8;
+            display: none;
+        }
+
+        .quiz-option {
+            background: #fff;
+            border: 3px solid #ddd;
+            border-radius: 15px;
+            padding: 15px;
+            margin: 10px 0;
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .quiz-option:hover { background: #f9f9f9; border-color: #BA68C8; }
+        .quiz-option.correct { background: #d4edda; border-color: #28a745; color: #155724; }
+        .quiz-option.wrong { background: #f8d7da; border-color: #dc3545; color: #721c24; }
+
+        #quiz-progress { font-size: 0.9rem; color: #888; margin-bottom: 10px; }
+        #quiz-feedback { font-weight: bold; height: 1.5rem; margin-top: 10px; }
+
+        /* 右下角常駐重置按鈕 */
+        #footer-reset {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.6);
+            border: 2px solid #999;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            cursor: pointer;
+            pointer-events: auto;
+            z-index: 50;
+        }
+
+        /* 安全提示小標籤 */
+        #safety-tip {
+            position: absolute;
+            bottom: 150px;
+            right: 20px;
+            font-size: 0.9rem;
+            color: #666;
+            background: rgba(255,255,255,0.8);
+            padding: 5px 10px;
+            border-radius: 10px;
+        }
+        
+        /* 隱藏 */
+        .hidden { display: none !important; }
+
+    </style>
+    <!-- 引入 Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <!-- 3D 畫布容器 -->
+    <div id="canvas-container"></div>
+
+    <!-- UI 層 -->
+    <div id="ui-container">
+        <header>
+            <h1 id="main-title">💧 水去咗邊度？</h1>
+            <p class="question" id="main-question">試吓揀一個溫度，睇吓杯入面嘅水會發生咩事？</p>
+        </header>
+
+        <!-- 總結 Modal -->
+        <div id="summary-modal" class="modal">
+            <h2>實驗完成！🎉</h2>
+            <p id="summary-text">水變成了看不見的水蒸氣。</p>
+            <div class="modal-buttons">
+                <button class="btn btn-reset-main" onclick="resetSim()" style="display:flex;">🔄 再玩一次</button>
+                <button class="btn btn-quiz" onclick="startQuiz()">🧠 挑戰小測驗</button>
+            </div>
+        </div>
+
+        <!-- 測驗 Modal -->
+        <div id="quiz-modal" class="modal" style="border-color: #BA68C8;">
+            <div id="quiz-progress">問題 1 / 4</div>
+            <h2 id="quiz-question" style="font-size: 1.3rem;">題目在這裡</h2>
+            <div id="quiz-options">
+                <!-- 選項會動態生成 -->
+            </div>
+            <div id="quiz-feedback"></div>
+        </div>
+
+        <!-- 測驗結果 Modal -->
+        <div id="result-modal" class="modal" style="border-color: #4CAF50;">
+            <h2>挑戰成功！🌟</h2>
+            <p id="result-text">你是小小科學家！</p>
+            <div class="modal-buttons">
+                <button class="btn btn-reset-main" onclick="resetSim()" style="display:flex; background-color: #4CAF50; color: white;">🏠 返回首頁</button>
+            </div>
+        </div>
+
+        <div id="safety-tip">💡 提示：做實驗要聽老師話呀！</div>
+
+        <div id="controls">
+            <button class="btn btn-cold temp-btn" onclick="startSim('cold')">
+                <span class="emoji">❄️</span>
+                似冬天 (凍)
+            </button>
+            <button class="btn btn-room temp-btn" onclick="startSim('room')">
+                <span class="emoji">🏠</span>
+                似房仔 (常溫)
+            </button>
+            <button class="btn btn-hot temp-btn" onclick="startSim('hot')">
+                <span class="emoji">☀️</span>
+                似夏天 (熱)
+            </button>
+            <!-- 實驗進行中顯示的重置按鈕 -->
+            <button class="btn btn-reset-main" id="sim-reset-btn" onclick="resetSim()">
+                <span class="emoji">🔄</span>
+                停止
+            </button>
+        </div>
+    </div>
+
+    <!-- 右下角常駐重置小按鈕 -->
+    <div id="footer-reset" onclick="resetSim()" title="全部重置">🔄</div>
+
+    <script>
+        // --- 1. Three.js 與實驗變數 ---
+        let scene, camera, renderer;
+        let cup, water, ground;
+        let particles = [];
+        let isSimulating = false;
+        let evaporationSpeed = 0;
+        let waterLevel = 1.0; 
+        let tempType = 'room';
+
+        // --- 2. 測驗資料 (初階 x2, 高階 x2) ---
+        const quizData = [
+            {
+                level: "初階",
+                q: "天氣越熱，水蒸發得越...？",
+                options: [
+                    { text: "越快 🐇", correct: true },
+                    { text: "越慢 🐢", correct: false }
+                ],
+                feedback: "啱啦！溫度高，水走得快！"
+            },
+            {
+                level: "初階",
+                q: "水變成水蒸氣之後，眼睛還看得到嗎？",
+                options: [
+                    { text: "看得到 👀", correct: false },
+                    { text: "看不見 👻", correct: true }
+                ],
+                feedback: "係呀！水蒸氣係透明睇唔到架。"
+            },
+            {
+                level: "高階",
+                q: "為什麼冬天的衣服比較難乾？",
+                options: [
+                    { text: "因為風太大 🌬️", correct: false },
+                    { text: "因為天氣凍 ❄️", correct: true }
+                ],
+                feedback: "無錯！天氣凍，水蒸發得慢。"
+            },
+            {
+                level: "高階",
+                q: "杯裡的水變少了，它是真的消失了嗎？",
+                options: [
+                    { text: "跑到空氣裡了 ☁️", correct: true },
+                    { text: "被杯子吃掉了 🥤", correct: false }
+                ],
+                feedback: "好叻呀！水變做水蒸氣入咗空氣度。"
+            }
+        ];
+
+        let currentQuizIndex = 0;
+        let quizScore = 0;
+
+        // --- 3. 初始化與 3D 場景 ---
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xe0f7fa);
+
+            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 3, 6);
+            camera.lookAt(0, 1, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(5, 10, 7);
+            scene.add(dirLight);
+
+            // 地板
+            const groundGeo = new THREE.CylinderGeometry(4, 4, 0.2, 32);
+            const groundMat = new THREE.MeshLambertMaterial({ color: 0x8d6e63 });
+            ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.position.y = -0.1;
+            scene.add(ground);
+
+            // 杯子
+            const cupGeo = new THREE.CylinderGeometry(1.1, 1.1, 2.5, 32, 1, true);
+            const cupMat = new THREE.MeshPhongMaterial({ color: 0xffffff, opacity: 0.3, transparent: true, side: THREE.DoubleSide });
+            cup = new THREE.Mesh(cupGeo, cupMat);
+            cup.position.y = 1.25;
+            scene.add(cup);
+
+            const cupBaseGeo = new THREE.CircleGeometry(1.1, 32);
+            const cupBase = new THREE.Mesh(cupBaseGeo, cupMat);
+            cupBase.rotation.x = -Math.PI / 2;
+            scene.add(cupBase);
+
+            // 水
+            const waterGeo = new THREE.CylinderGeometry(1.05, 1.05, 2.0, 32);
+            waterGeo.translate(0, 1.0, 0);
+            const waterMat = new THREE.MeshPhongMaterial({ color: 0x2196F3, transparent: true, opacity: 0.8 });
+            water = new THREE.Mesh(waterGeo, waterMat);
+            water.position.y = 0.05;
+            scene.add(water);
+
+            // 刻度
+            for(let i=1; i<=4; i++) {
+                const lineGeo = new THREE.TorusGeometry(1.12, 0.02, 16, 32);
+                const lineMat = new THREE.MeshBasicMaterial({ color: 0x333333 });
+                const line = new THREE.Mesh(lineGeo, lineMat);
+                line.rotation.x = Math.PI / 2;
+                line.position.y = i * 0.5;
+                scene.add(line);
+            }
+
+            window.addEventListener('resize', onWindowResize, false);
+            animate();
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function createParticle() {
+            const pGeo = new THREE.SphereGeometry(0.1, 8, 8);
+            const pMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6 });
+            const p = new THREE.Mesh(pGeo, pMat);
+            
+            const x = (Math.random() - 0.5) * 1.5;
+            const z = (Math.random() - 0.5) * 1.5;
+            const startY = water.position.y + (2.0 * waterLevel); 
+            
+            p.position.set(x, startY, z);
+            scene.add(p);
+            
+            particles.push({
+                mesh: p,
+                speed: 0.02 + Math.random() * 0.05 + (evaporationSpeed * 2),
+                life: 1.0
+            });
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (isSimulating && waterLevel > 0) {
+                waterLevel -= evaporationSpeed;
+                if (waterLevel < 0) waterLevel = 0;
+                water.scale.y = waterLevel;
+
+                let spawnRate = 0;
+                if (tempType === 'cold') spawnRate = 0.05;
+                if (tempType === 'room') spawnRate = 0.1;
+                if (tempType === 'hot') spawnRate = 0.4;
+
+                if (Math.random() < spawnRate) {
+                    createParticle();
+                    if(Math.random() < 0.1) playSound('bubble'); 
+                }
+            } else if (isSimulating && waterLevel <= 0) {
+                finishSim();
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.mesh.position.y += p.speed;
+                p.mesh.position.x += Math.sin(Date.now() * 0.001 + i) * 0.01;
+                p.life -= 0.01;
+                p.mesh.material.opacity = p.life;
+
+                if (p.life <= 0) {
+                    scene.remove(p.mesh);
+                    particles.splice(i, 1);
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // --- 4. 實驗控制邏輯 ---
+
+        function startSim(type) {
+            if (isSimulating && waterLevel > 0) return;
+            
+            resetSimLogic();
+            isSimulating = true;
+            tempType = type;
+
+            let speed = 0;
+            let bgColor = 0xffffff;
+            let speechText = "";
+
+            if (type === 'cold') {
+                speed = 0.001;
+                bgColor = 0xe1f5fe;
+                speechText = "依家好似冬天咁凍。啲水蒸發得好慢。";
+                document.getElementById('main-title').innerText = "❄️ 寒冷嘅冬天...";
+            } else if (type === 'room') {
+                speed = 0.005;
+                bgColor = 0xe8f5e9;
+                speechText = "呢個係常溫，好似喺課室入面咁。啲水會慢慢變少。";
+                document.getElementById('main-title').innerText = "🏠 溫暖嘅房間...";
+            } else if (type === 'hot') {
+                speed = 0.02;
+                bgColor = 0xfff3e0;
+                speechText = "好熱呀！好似夏天嘅大太陽咁！啲水走得好快！";
+                document.getElementById('main-title').innerText = "☀️ 炎熱嘅夏天！";
+            }
+
+            evaporationSpeed = speed;
+            scene.background = new THREE.Color(bgColor);
+
+            // UI 更新
+            document.querySelectorAll('.temp-btn').forEach(el => el.style.display = 'none');
+            document.getElementById('sim-reset-btn').style.display = 'flex';
+            
+            speak(speechText);
+            playSound('start');
+        }
+
+        function finishSim() {
+            isSimulating = false;
+            
+            // 顯示總結資訊
+            const modal = document.getElementById('summary-modal');
+            const summaryText = document.getElementById('summary-text');
+            
+            let conclusion = "";
+            let speech = "";
+            
+            if(tempType === 'hot') {
+                conclusion = "因為好熱，水好快就變成水蒸氣啦！";
+                speech = "嘩！因為好熱，啲水好快就全部變成水蒸氣啦！";
+            } else if(tempType === 'cold') {
+                conclusion = "雖然好凍，水都係會慢慢變水蒸氣！";
+                speech = "雖然好凍，但係啲水都係會慢慢變成水蒸氣架！";
+            } else {
+                conclusion = "水變成看不見的水蒸氣，跑到空氣裡了！";
+                speech = "你覺唔覺呀？啲水變成睇唔見嘅水蒸氣，跑咗入空氣裡面啦！";
+            }
+            
+            summaryText.innerText = conclusion;
+            modal.style.display = 'block';
+            document.getElementById('sim-reset-btn').style.display = 'none';
+            
+            playSound('success');
+            speak(speech);
+        }
+
+        function resetSim() {
+            resetSimLogic();
+            
+            // UI 重置
+            document.getElementById('summary-modal').style.display = 'none';
+            document.getElementById('quiz-modal').style.display = 'none';
+            document.getElementById('result-modal').style.display = 'none';
+            document.getElementById('sim-reset-btn').style.display = 'none';
+            document.querySelectorAll('.temp-btn').forEach(el => el.style.display = 'flex');
+            
+            document.getElementById('main-title').innerText = "💧 水去咗邊度？";
+            scene.background = new THREE.Color(0xe0f7fa);
+            speak("我哋再試一次啦！揀一個溫度。");
+        }
+
+        function resetSimLogic() {
+            isSimulating = false;
+            waterLevel = 1.0;
+            water.scale.y = 1;
+            particles.forEach(p => scene.remove(p.mesh));
+            particles = [];
+            currentQuizIndex = 0;
+            quizScore = 0;
+        }
+
+        // --- 5. 測驗邏輯 ---
+
+        function startQuiz() {
+            document.getElementById('summary-modal').style.display = 'none';
+            document.getElementById('quiz-modal').style.display = 'block';
+            currentQuizIndex = 0;
+            quizScore = 0;
+            showQuestion();
+            speak("我哋嚟玩個小遊戲啦！揀出啱嘅答案！");
+        }
+
+        function showQuestion() {
+            if(currentQuizIndex >= quizData.length) {
+                finishQuiz();
+                return;
+            }
+
+            const data = quizData[currentQuizIndex];
+            document.getElementById('quiz-progress').innerText = `問題 ${currentQuizIndex + 1} / 4  (${data.level})`;
+            document.getElementById('quiz-question').innerText = data.q;
+            
+            const optionsDiv = document.getElementById('quiz-options');
+            optionsDiv.innerHTML = "";
+            document.getElementById('quiz-feedback').innerText = "";
+
+            data.options.forEach(opt => {
+                const btn = document.createElement('div');
+                btn.className = 'quiz-option';
+                btn.innerText = opt.text;
+                btn.onclick = () => checkAnswer(btn, opt.correct, data.feedback);
+                optionsDiv.appendChild(btn);
+            });
+            
+            // 讀出題目
+            setTimeout(() => speak(data.q), 500);
+        }
+
+        function checkAnswer(btn, isCorrect, feedbackText) {
+            // 防止重複點擊
+            const allBtns = document.querySelectorAll('.quiz-option');
+            allBtns.forEach(b => b.onclick = null);
+
+            if(isCorrect) {
+                btn.classList.add('correct');
+                document.getElementById('quiz-feedback').style.color = 'green';
+                document.getElementById('quiz-feedback').innerText = "✅ 答啱啦！" + feedbackText;
+                playSound('correct');
+                speak("答啱啦！" + feedbackText);
+                quizScore++;
+                
+                setTimeout(() => {
+                    currentQuizIndex++;
+                    showQuestion();
+                }, 3000);
+            } else {
+                btn.classList.add('wrong');
+                document.getElementById('quiz-feedback').style.color = 'red';
+                document.getElementById('quiz-feedback').innerText = "❌ 唔係喔，試多次啦！";
+                playSound('wrong');
+                speak("唔係喔，再試多次啦！");
+                
+                // 錯誤後可以重試
+                setTimeout(() => {
+                    btn.classList.remove('wrong');
+                    // 恢復點擊
+                    const data = quizData[currentQuizIndex];
+                    const opts = document.querySelectorAll('.quiz-option');
+                    opts.forEach((b, idx) => {
+                        b.onclick = () => checkAnswer(b, data.options[idx].correct, data.feedback);
+                    });
+                }, 2000);
+            }
+        }
+
+        function finishQuiz() {
+            document.getElementById('quiz-modal').style.display = 'none';
+            document.getElementById('result-modal').style.display = 'block';
+            
+            const resultText = document.getElementById('result-text');
+            resultText.innerText = `你完成咗測驗啦！你真係一個出色嘅小小科學家！`;
+            
+            playSound('success');
+            speak("太好啦！你完成咗所有題目，真係好叻呀！");
+        }
+
+
+        // --- 6. 語音與音效 ---
+        let voices = [];
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.onvoiceschanged = () => {
+                voices = window.speechSynthesis.getVoices();
+            };
+        }
+
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                
+                if (voices.length === 0) voices = window.speechSynthesis.getVoices();
+                const cantoneseVoice = voices.find(v => v.lang.includes('zh-HK') || v.lang === 'yue-Hant-HK');
+                
+                if (cantoneseVoice) {
+                    utterance.voice = cantoneseVoice;
+                    utterance.lang = 'zh-HK';
+                } else {
+                    utterance.lang = 'zh-TW'; 
+                }
+
+                utterance.rate = 0.95;
+                utterance.pitch = 1.1;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        // 音效
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioCtx = new AudioContext();
+
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+
+            if (type === 'start') {
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(600, now + 0.3);
+                gainNode.gain.setValueAtTime(0.3, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            } else if (type === 'success') {
+                // Do-Mi-So-Do
+                playNote(523.25, 0); 
+                playNote(659.25, 0.1); 
+                playNote(783.99, 0.2);
+                playNote(1046.5, 0.4);
+            } else if (type === 'correct') {
+                // 叮咚 (兩聲)
+                playNote(659.25, 0); // Mi
+                playNote(1046.5, 0.15); // High Do
+            } else if (type === 'wrong') {
+                // 低沉的 buzz
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.linearRampToValueAtTime(100, now + 0.3);
+                gainNode.gain.setValueAtTime(0.2, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            } else if (type === 'bubble') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(200 + Math.random()*200, now);
+                gainNode.gain.setValueAtTime(0.1, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            }
+        }
+
+        function playNote(freq, delay) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sine';
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0, audioCtx.currentTime + delay);
+            gain.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + delay + 0.1);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + delay + 0.4);
+            osc.start(audioCtx.currentTime + delay);
+            osc.stop(audioCtx.currentTime + delay + 0.4);
+        }
+
+        init();
+
+    </script>
+</body>
+</html>
